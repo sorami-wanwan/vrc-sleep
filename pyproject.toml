@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vrc-sleep"
+version = "1.0.0"
+description = "VRChat Sleep Notification CLI with Discord Webhook integration"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "SORAMI" }
+]
+keywords = ["vrchat", "discord", "webhook", "cli", "sleep-notifier"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console"
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+vrc-sleep = "vrc_sleep:main"
+
+[tool.setuptools]
+py-modules = ["vrc_sleep"]

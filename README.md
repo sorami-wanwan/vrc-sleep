@@ -73,6 +73,14 @@ python3 vrc_sleep.py status
 
 Use `--config /path/to/config.json` if you want to specify a custom configuration file location.
 
+## Development & Testing
+
+Run unit tests using Python's built-in `unittest` module:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
 ## License
 
 MIT License

@@ -11,11 +11,15 @@ import re
 import sys
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from datetime import datetime, timezone
 from pathlib import Path
 
 # Defaults
 DEFAULT_USERNAME = "VRChat User"
+MAX_USERNAME_LENGTH = 50
+MAX_URL_LENGTH = 2048
+
 DISCORD_WEBHOOK_PATTERN = re.compile(
     r"^https://(?:ptb\.|canary\.)?discord(?:app)?\.com/api/webhooks/\d+/[A-Za-z0-9_-]+/?(?:\?.*)?$"
 )
@@ -23,14 +27,22 @@ VRCHAT_URL_PATTERN = re.compile(
     r"^https://(?:(?:www\.)?vrchat\.com/home/(?:launch\?|world/|avatar/)|vrch\.at/).+$"
 )
 
-# ANSI Colors
-COLOR_RESET = "\033[0m"
-COLOR_BOLD = "\033[1m"
-COLOR_GREEN = "\033[32m"
-COLOR_YELLOW = "\033[33m"
-COLOR_BLUE = "\033[34m"
-COLOR_CYAN = "\033[36m"
-COLOR_RED = "\033[31m"
+# ANSI Colors (disabled if NO_COLOR is set or stdout is not a tty)
+def _supports_color() -> bool:
+    if os.getenv("NO_COLOR"):
+        return False
+    if not sys.stdout.isatty():
+        return False
+    return True
+
+_COLOR_ENABLED = _supports_color()
+COLOR_RESET = "\033[0m" if _COLOR_ENABLED else ""
+COLOR_BOLD = "\033[1m" if _COLOR_ENABLED else ""
+COLOR_GREEN = "\033[32m" if _COLOR_ENABLED else ""
+COLOR_YELLOW = "\033[33m" if _COLOR_ENABLED else ""
+COLOR_BLUE = "\033[34m" if _COLOR_ENABLED else ""
+COLOR_CYAN = "\033[36m" if _COLOR_ENABLED else ""
+COLOR_RED = "\033[31m" if _COLOR_ENABLED else ""
 
 
 def get_default_config_dir() -> Path:
@@ -45,34 +57,37 @@ def get_default_config_dir() -> Path:
     return Path.home() / ".config" / "vrc_sleep"
 
 
+def is_in_source_repo() -> bool:
+    """Check if script is being run directly inside its git/source repository."""
+    parent_dir = Path(__file__).resolve().parent
+    return (parent_dir / ".git").exists() or (parent_dir / "config.example.json").exists()
+
+
 def resolve_config_path(custom_path: str | None = None) -> Path:
     """
-    Resolve configuration file path with hybrid priority:
+    Resolve configuration file path:
     1. Explicit custom path (--config)
-    2. Local file in script directory or current working directory (config.json)
-    3. User home config directory (~/.config/vrc_sleep/config.json)
+    2. Local file in source repository root if running from source (config.json)
+    3. User home config directory (~/.config/vrc_sleep/config.json or %APPDATA%/vrc_sleep/config.json)
     """
     if custom_path:
         return Path(custom_path).resolve()
 
-    # 1. Check local directory (script dir or current working dir)
-    script_dir_config = Path(__file__).resolve().parent / "config.json"
-    if script_dir_config.exists():
-        return script_dir_config
-
-    cwd_config = Path.cwd() / "config.json"
-    if cwd_config.exists():
-        return cwd_config
+    # 1. Check source repository directory (if developing/running from source)
+    if is_in_source_repo():
+        repo_config = Path(__file__).resolve().parent / "config.json"
+        if repo_config.exists():
+            return repo_config
 
     # 2. Check user config dir
     user_config = get_default_config_dir() / "config.json"
     if user_config.exists():
         return user_config
 
-    # Default target for new creation: script dir if writable, else user config dir
-    script_dir = Path(__file__).resolve().parent
-    if os.access(script_dir, os.W_OK):
-        return script_dir_config
+    # 3. Default target for new creation:
+    # If running from source repository, prefer repo root; otherwise user config dir.
+    if is_in_source_repo() and os.access(Path(__file__).resolve().parent, os.W_OK):
+        return Path(__file__).resolve().parent / "config.json"
     return user_config
 
 
@@ -90,7 +105,11 @@ def load_config(config_path: Path) -> dict:
     if config_path.exists():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
-                config = json.load(f)
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    config = loaded
+                else:
+                    print(f"{COLOR_YELLOW}[!] Warning: Config file is not a JSON object ({config_path}). Using defaults.{COLOR_RESET}")
         except Exception as e:
             print(f"{COLOR_YELLOW}[!] Warning: Failed to parse config file ({config_path}): {e}{COLOR_RESET}")
 
@@ -106,11 +125,36 @@ def load_config(config_path: Path) -> dict:
     return config
 
 
+def atomic_save_json(data: dict, file_path: Path, secure_mode: bool = False) -> None:
+    """
+    Atomically write JSON to file to prevent corruption on sudden termination.
+    If secure_mode is True, sets 0o600 permissions (owner read/write only) on POSIX.
+    """
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_file = file_path.parent / f".{file_path.name}.{os.getpid()}.tmp"
+    try:
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        if secure_mode and sys.platform != "win32":
+            try:
+                os.chmod(temp_file, 0o600)
+            except OSError:
+                pass
+        temp_file.replace(file_path)
+    except Exception:
+        if temp_file.exists():
+            try:
+                temp_file.unlink()
+            except OSError:
+                pass
+        raise
+
+
 def save_config(config: dict, config_path: Path) -> None:
-    """Save configuration to config.json."""
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
+    """Save configuration to config.json with secure file permissions."""
+    atomic_save_json(config, config_path, secure_mode=True)
 
 
 def load_state(state_path: Path) -> dict | None:
@@ -118,26 +162,34 @@ def load_state(state_path: Path) -> dict | None:
     if state_path.exists():
         try:
             with open(state_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                loaded = json.load(f)
+                return loaded if isinstance(loaded, dict) else None
         except Exception:
             return None
     return None
 
 
 def save_state(state: dict, state_path: Path) -> None:
-    """Save session state to .state.json."""
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(state_path, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
+    """Save session state to .state.json atomically."""
+    atomic_save_json(state, state_path, secure_mode=False)
 
 
 def clear_state(state_path: Path) -> None:
-    """Remove active session state file."""
+    """Remove active session state file safely."""
     if state_path.exists():
         try:
             state_path.unlink()
         except OSError:
             pass
+
+
+def append_query_param(url: str, key: str, value: str) -> str:
+    """Safely add or update a query parameter in a URL."""
+    parsed = urlparse(url)
+    qs = parse_qs(parsed.query, keep_blank_values=True)
+    qs[key] = [value]
+    new_query = urlencode(qs, doseq=True)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
 
 
 def mask_url(url: str | None) -> str:
@@ -156,19 +208,57 @@ def mask_url(url: str | None) -> str:
 
 
 def validate_webhook_url(url: str) -> bool:
-    """Validate Discord Webhook URL format."""
-    return bool(DISCORD_WEBHOOK_PATTERN.match(url.strip()))
+    """Validate Discord Webhook URL format and domain strictly."""
+    url = url.strip()
+    if len(url) > MAX_URL_LENGTH:
+        return False
+    if not DISCORD_WEBHOOK_PATTERN.match(url):
+        return False
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            return False
+        hostname = (parsed.hostname or "").lower()
+        if hostname not in ("discord.com", "discordapp.com", "canary.discord.com", "ptb.discord.com"):
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def validate_vrchat_url(url: str) -> bool:
-    """Validate VRChat instance/world URL format and check for disallowed characters."""
+    """
+    Validate VRChat instance/world URL format strictly:
+    - Length check
+    - HTTPS scheme check
+    - Whitelisted hostnames (vrchat.com, www.vrchat.com, vrch.at)
+    - Forbidden characters check (newlines, spaces, quotes, brackets, control characters)
+    """
     url = url.strip()
+    if len(url) > MAX_URL_LENGTH:
+        return False
+
+    # Prevent Markdown injection, command injection, and header injection
+    forbidden_chars = ("\n", "\r", "\t", "\0", "[", "]", "(", ")", " ", "`", "<", ">", '"', "'", "\\")
+    if any(c in url for c in forbidden_chars):
+        return False
+
     if not VRCHAT_URL_PATTERN.match(url):
         return False
-    # Prevent markdown injection
-    if any(c in url for c in ["\n", "\r", "[", "]", "(", ")", " "]):
+
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            return False
+        hostname = (parsed.hostname or "").lower()
+        if hostname in ("vrchat.com", "www.vrchat.com"):
+            path = parsed.path
+            return path.startswith("/home/launch") or path.startswith("/home/world") or path.startswith("/home/avatar")
+        elif hostname == "vrch.at":
+            return len(parsed.path) > 1
         return False
-    return True
+    except Exception:
+        return False
 
 
 def get_username(config: dict) -> str:
@@ -188,7 +278,7 @@ def get_webhook_url(config: dict) -> str:
     return webhook_url
 
 
-def send_http_request(url: str, method: str, payload: dict) -> tuple[int, dict]:
+def send_http_request(url: str, method: str, payload: dict, timeout: float = 15.0) -> tuple[int, dict]:
     """
     Send an HTTP request with JSON payload.
     Returns (status_code, response_json).
@@ -204,9 +294,15 @@ def send_http_request(url: str, method: str, payload: dict) -> tuple[int, dict]:
         method=method
     )
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8")
-            return resp.status, json.loads(body) if body else {}
+            resp_json = {}
+            if body:
+                try:
+                    resp_json = json.loads(body)
+                except Exception:
+                    pass
+            return resp.status, resp_json
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8", errors="replace")
         err_json = {}
@@ -215,6 +311,9 @@ def send_http_request(url: str, method: str, payload: dict) -> tuple[int, dict]:
         except Exception:
             pass
         return e.code, err_json
+    except TimeoutError:
+        print(f"{COLOR_RED}[!] Network Error: Request timed out after {timeout} seconds.{COLOR_RESET}")
+        sys.exit(1)
     except urllib.error.URLError as e:
         print(f"{COLOR_RED}[!] Network Error: {e.reason}{COLOR_RESET}")
         sys.exit(1)
@@ -247,6 +346,7 @@ def build_sleep_embed(username: str, instance_url: str, timestamp_iso: str) -> d
 
 def build_closed_embed(username: str, instance_url: str, closed_iso: str) -> dict:
     """Construct the Discord embed for instance closed notification."""
+    instance_val = f"~~[Instance Link]({instance_url})~~ *(Closed)*" if instance_url else "*(Instance URL not recorded)*"
     return {
         "title": f"☀️ {username} has woken up / Instance Closed",
         "description": "The sleep instance is now closed. Thank you for visiting!",
@@ -259,7 +359,7 @@ def build_closed_embed(username: str, instance_url: str, closed_iso: str) -> dic
             },
             {
                 "name": "VRChat Instance",
-                "value": f"~~[Instance Link]({instance_url})~~ *(Closed)*",
+                "value": instance_val,
                 "inline": False
             }
         ],
@@ -292,7 +392,11 @@ def cmd_start(args):
     if current_state and not args.force:
         print(f"{COLOR_YELLOW}[!] An active sleep session is already recorded from: {current_state.get('started_at')}{COLOR_RESET}")
         print(f"    Message ID: {current_state.get('message_id')}")
-        choice = input(f"Do you want to overwrite it and post a new message? (y/N): ").strip().lower()
+        try:
+            choice = input("Do you want to overwrite it and post a new message? (y/N): ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted.")
+            return
         if choice != "y":
             print("Aborted.")
             return
@@ -302,17 +406,21 @@ def cmd_start(args):
     payload = {
         "username": f"{username} Sleep Notifier",
         "avatar_url": "https://assets.vrchat.com/www/brand/vrchat-logo-white.png",
-        "embeds": [embed]
+        "embeds": [embed],
+        "allowed_mentions": {"parse": []}
     }
 
-    # Add wait=true to get back the message object with message ID
-    delimiter = "&" if "?" in webhook_url else "?"
-    post_url = f"{webhook_url}{delimiter}wait=true"
+    # Add wait=true safely using URL query manipulation
+    post_url = append_query_param(webhook_url, "wait", "true")
 
     print(f"{COLOR_CYAN}[*] Sending sleep announcement for '{username}' to Discord...{COLOR_RESET}")
     status_code, resp = send_http_request(post_url, method="POST", payload=payload)
 
-    if status_code not in (200, 201, 204):
+    if status_code == 429:
+        retry_after = resp.get("retry_after", "a few")
+        print(f"{COLOR_YELLOW}[!] Discord Rate Limit: Please wait {retry_after}s before trying again.{COLOR_RESET}")
+        sys.exit(1)
+    elif status_code not in (200, 201, 204):
         print(f"{COLOR_RED}[!] Discord API Error ({status_code}): {resp.get('message', 'Failed to post message')}{COLOR_RESET}")
         sys.exit(1)
 
@@ -366,7 +474,8 @@ def cmd_close(args):
 
     embed = build_closed_embed(username, instance_url, now_iso)
     payload = {
-        "embeds": [embed]
+        "embeds": [embed],
+        "allowed_mentions": {"parse": []}
     }
 
     print(f"{COLOR_CYAN}[*] Updating Discord message (ID: {message_id}) to 'Closed'...{COLOR_RESET}")
@@ -377,6 +486,10 @@ def cmd_close(args):
         clear_state(state_path)
         print(f"{COLOR_GREEN}[✓] Local active session state cleared successfully.{COLOR_RESET}")
         return
+    elif status_code == 429:
+        retry_after = resp.get("retry_after", "a few")
+        print(f"{COLOR_YELLOW}[!] Discord Rate Limit: Please wait {retry_after}s before trying again.{COLOR_RESET}")
+        sys.exit(1)
     elif status_code not in (200, 204):
         print(f"{COLOR_RED}[!] Discord API Error ({status_code}): {resp.get('message', 'Failed to update message')}{COLOR_RESET}")
         sys.exit(1)
@@ -433,10 +546,15 @@ def cmd_config(args):
         updated = True
         print(f"{COLOR_GREEN}[✓] Discord Webhook URL has been updated!{COLOR_RESET}")
 
-    if args.username:
-        username_clean = args.username.strip()
-        if len(username_clean) > 50:
-            print(f"{COLOR_RED}[!] Error: Username is too long (max 50 characters).{COLOR_RESET}")
+    if args.username is not None:
+        # Sanitize control characters and normalize spaces
+        username_clean = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", args.username).strip()
+        username_clean = " ".join(username_clean.split())
+        if not username_clean:
+            print(f"{COLOR_RED}[!] Error: Username cannot be empty or solely whitespace/control characters.{COLOR_RESET}")
+            sys.exit(1)
+        if len(username_clean) > MAX_USERNAME_LENGTH:
+            print(f"{COLOR_RED}[!] Error: Username is too long (max {MAX_USERNAME_LENGTH} characters).{COLOR_RESET}")
             sys.exit(1)
         config["username"] = username_clean
         updated = True

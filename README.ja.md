@@ -70,6 +70,14 @@ python3 vrc_sleep.py status
 
 ※別の場所にある設定ファイルを使いたい場合は、`--config /path/to/config.json` を指定してください。
 
+## 開発・テスト
+
+Python標準の `unittest` で単体テストを実行できます（外部パッケージ不要）。
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
 ## ライセンス
 
 MIT License

@@ -5,6 +5,10 @@
 A tool that notifies your instance URL to Discord when you sleep in VRChat, and updates the message to "Closed" when you wake up.
 It provides both a CLI and a modern GUI (Desktop Application).
 
+<p align="center">
+  <img src="assets/gui_screenshot.png" alt="VRC Sleep Notifier GUI" width="480">
+</p>
+
 It runs solely on Python's standard libraries, requiring no external package installation.
 
 ## Requirements

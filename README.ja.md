@@ -5,6 +5,10 @@
 VRChatで寝るときにDiscordへインスタンスURLを通知し、起きたらそのメッセージを「クローズ」に書き換えるツールです。
 CLIとGUI（デスクトップアプリ）の両方を提供しています。
 
+<p align="center">
+  <img src="assets/gui_screenshot.png" alt="VRC Sleep Notifier GUI" width="480">
+</p>
+
 Pythonの標準ライブラリだけで動くので、外部パッケージのインストールは不要です。
 
 ## 動作環境

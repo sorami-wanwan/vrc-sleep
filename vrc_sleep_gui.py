@@ -244,10 +244,10 @@ class VRCSleepGUI:
                     config = json.load(f)
                     if not isinstance(config, dict):
                         config = {}
-                    
+
                     webhook = config.get("webhook_url", "")
                     self.webhook_url = str(webhook).strip() if webhook is not None else ""
-                    
+
                     username = config.get("username", "")
                     self.username = str(username).strip() if username is not None else ""
             except (OSError, json.JSONDecodeError) as e:
@@ -259,15 +259,15 @@ class VRCSleepGUI:
                     state = json.load(f)
                     if not isinstance(state, dict):
                         state = {}
-                        
+
                     self.is_sleeping = bool(state.get("is_sleeping", False))
-                    
+
                     instance = state.get("instance_url", "")
                     self.instance_var.set(str(instance) if instance is not None else "")
-                    
+
                     world = state.get("world_name", "")
                     self.world_var.set(str(world) if world is not None else "")
-                    
+
                     image = state.get("image_url", "")
                     self.image_var.set(str(image) if image is not None else "")
             except (OSError, json.JSONDecodeError) as e:
@@ -498,6 +498,6 @@ if __name__ == "__main__":
         import vrc_sleep
         # Remove the --cli argument before passing control to vrc_sleep
         sys.argv.pop(1)
-        vrc_sleep.main()  # type: ignore
+        vrc_sleep.main()
     else:
         main()

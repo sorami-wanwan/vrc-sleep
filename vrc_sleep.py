@@ -18,6 +18,7 @@ import urllib.error
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 # Defaults and limits
 DEFAULT_USERNAME = "VRChat User"
@@ -109,7 +110,7 @@ def resolve_state_path(custom_config_path: str | None = None) -> Path:
     return config_path.parent / ".state.json"
 
 
-def load_config(config_path: Path) -> dict:
+def load_config(config_path: Path) -> dict[str, Any]:
     """Load configuration from config.json or environment variables."""
     config = {}
     if config_path.exists():
@@ -135,7 +136,7 @@ def load_config(config_path: Path) -> dict:
     return config
 
 
-def atomic_save_json(data: dict, file_path: Path, secure_mode: bool = False) -> None:
+def atomic_save_json(data: dict[str, Any], file_path: Path, secure_mode: bool = False) -> None:
     """
     Atomically write JSON to file to prevent corruption on sudden termination.
     If secure_mode is True, sets 0o600 permissions (owner read/write only) on POSIX.
@@ -174,12 +175,12 @@ def atomic_save_json(data: dict, file_path: Path, secure_mode: bool = False) -> 
 
 
 
-def save_config(config: dict, config_path: Path) -> None:
+def save_config(config: dict[str, Any], config_path: Path) -> None:
     """Save configuration to config.json with secure file permissions."""
     atomic_save_json(config, config_path, secure_mode=True)
 
 
-def load_state(state_path: Path) -> dict | None:
+def load_state(state_path: Path) -> dict[str, Any] | None:
     """Load active session state from .state.json with corruption quarantine and type validation."""
     if not state_path.exists():
         return None
@@ -231,7 +232,7 @@ def load_state(state_path: Path) -> dict | None:
         return None
 
 
-def save_state(state: dict, state_path: Path) -> None:
+def save_state(state: dict[str, Any], state_path: Path) -> None:
     """Save session state to .state.json atomically."""
     atomic_save_json(state, state_path, secure_mode=False)
 
@@ -441,14 +442,14 @@ def sanitize_world_name(name: str | None) -> str | None:
     return trimmed.strip() or None
 
 
-def get_username(config: dict) -> str:
+def get_username(config: dict[str, Any]) -> str:
     """Get configured username or fallback to default."""
     return config.get("username", "").strip() or DEFAULT_USERNAME
 
 
-def get_webhook_url(config: dict) -> str:
+def get_webhook_url(config: dict[str, Any]) -> str:
     """Retrieve webhook URL or prompt user to configure it."""
-    webhook_url = config.get("webhook_url", "").strip()
+    webhook_url = str(config.get("webhook_url", "")).strip()
     if not webhook_url:
         print(f"{COLOR_RED}[!] Error: Discord Webhook URL is not configured.{COLOR_RESET}")
         print(f"Please set your Webhook URL using:")
@@ -458,7 +459,7 @@ def get_webhook_url(config: dict) -> str:
     return webhook_url
 
 
-def send_http_request(url: str, method: str, payload: dict, timeout: float = 15.0) -> tuple[int, dict]:
+def send_http_request(url: str, method: str, payload: dict[str, Any], timeout: float = 15.0) -> tuple[int, dict[str, Any]]:
     """
     Send an HTTP request with JSON payload.
     Returns (status_code, response_json).
@@ -505,7 +506,7 @@ def build_sleep_embed(
     timestamp_iso: str,
     world_name: str | None = None,
     image_url: str | None = None
-) -> dict:
+) -> dict[str, Any]:
     """Construct the Discord embed for sleep notification safely within limits."""
     safe_username = (username[:MAX_USERNAME_LENGTH] if username else DEFAULT_USERNAME)
 
@@ -556,7 +557,7 @@ def build_closed_embed(
     closed_iso: str,
     world_name: str | None = None,
     image_url: str | None = None
-) -> dict:
+) -> dict[str, Any]:
     """Construct the Discord embed for instance closed notification safely within limits."""
     safe_username = (username[:MAX_USERNAME_LENGTH] if username else DEFAULT_USERNAME)
 
@@ -604,7 +605,7 @@ def build_closed_embed(
     return embed
 
 
-def cmd_start(args):
+def cmd_start(args: Any) -> None:
     """Handle `start` command: Post sleep announcement with optional world name and image to Discord."""
     config_path = resolve_config_path(args.config)
     state_path = resolve_state_path(args.config)
@@ -710,7 +711,7 @@ def cmd_start(args):
     print(f"  {COLOR_BOLD}python3 vrc_sleep.py close{COLOR_RESET}")
 
 
-def cmd_close(args):
+def cmd_close(args: Any) -> None:
     """Handle `close` command: Edit Discord message to indicate closed status."""
     config_path = resolve_config_path(args.config)
     state_path = resolve_state_path(args.config)
@@ -782,7 +783,7 @@ def cmd_close(args):
     print(f"    - Good morning, {username}! Session finished.")
 
 
-def cmd_status(args):
+def cmd_status(args: Any) -> None:
     """Handle `status` command: Check current session and configuration status."""
     config_path = resolve_config_path(args.config)
     state_path = resolve_state_path(args.config)
@@ -815,7 +816,7 @@ def cmd_status(args):
         print(f"Active Session: {COLOR_YELLOW}None (Idle){COLOR_RESET}")
 
 
-def cmd_config(args):
+def cmd_config(args: Any) -> None:
     """Handle `config` command: Set Webhook URL / Username or view settings."""
     config_path = resolve_config_path(args.config)
     config = load_config(config_path)
@@ -859,7 +860,7 @@ def cmd_config(args):
             print(f"\n{COLOR_YELLOW}(Tip: Use --show-secret to display full unmasked Webhook URL){COLOR_RESET}")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="VRChat Sleep Notification CLI for Discord Webhook",
         formatter_class=argparse.RawDescriptionHelpFormatter,

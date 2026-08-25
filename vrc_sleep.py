@@ -304,7 +304,7 @@ def validate_vrchat_url(url: str) -> bool:
     if len(url) > MAX_URL_LENGTH:
         return False
 
-    # URL内の全文字が制御文字や空白を含まないASCII印字可能文字の範囲内かチェック
+    # Check if all characters in the URL are within the printable ASCII range, excluding control characters and spaces
     if not all(0x21 <= ord(c) <= 0x7E for c in url):
         return False
 
@@ -353,7 +353,7 @@ def validate_image_url(url: str) -> bool:
     if len(url) > MAX_IMAGE_URL_LENGTH:
         return False
 
-    # URL内の全文字が制御文字や空白を含まないASCII印字可能文字の範囲内かチェック
+    # Check if all characters in the URL are within the printable ASCII range, excluding control characters and spaces
     if not all(0x21 <= ord(c) <= 0x7E for c in url):
         return False
 
@@ -375,7 +375,7 @@ def validate_image_url(url: str) -> bool:
         if any(path.endswith(ext) for ext in ALLOWED_IMAGE_EXTENSIONS):
             return True
 
-        # 部分一致の排除と厳格なクエリ解析
+        # Reject partial matches and perform strict query parsing
         qs = parse_qs(parsed.query, keep_blank_values=False)
         for key in ("format", "ext", "auto"):
             for val in qs.get(key, []):

@@ -23,6 +23,19 @@ cd vrc_position_nofy
 pip install .
 ```
 
+## Important Notice for Windows Users (Installation & Execution)
+
+When using the executable version of this tool on Windows, please strictly observe the following:
+
+1. **Always "Extract All" before running the ZIP file**
+   If you double-click the downloaded ZIP file and run the `.exe` directly from within it, the application will run in a temporary Windows folder (TEMP). This causes all your saved settings to be lost upon closing. Right-click the ZIP file and select **"Extract All..."** before running the executable.
+2. **If you see a "Windows protected your PC" (SmartScreen) warning**
+   Windows SmartScreen may display a warning prompt. In this case, click **"More info"**, and then click the **"Run anyway"** button that appears.
+3. **Antivirus (e.g., Windows Defender) Interference**
+   If settings cannot be saved or are reset, please add the folder containing this tool to the exclusion list of your antivirus software (e.g., Windows Defender).
+4. **Secure Installation Location**
+   For security reasons, do not extract or run this tool in shared folders or Temp directories. Please extract and run it in a trusted, secure directory such as My Documents.
+
 ## Usage
 
 Initial setup is required for the Discord Webhook URL. If using the GUI version (`vrc_sleep_gui.py`), you can configure this by clicking the **Settings** button in the top right corner after launching.

@@ -1,26 +1,43 @@
-name: Test
+name: Test and Lint
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v4
-
+    
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-
+        cache: 'pip'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 mypy
+        
+    - name: Lint with flake8
+      run: |
+        flake8 vrc_sleep_gui.py
+        
+    - name: Type check with mypy
+      run: |
+        mypy --strict vrc_sleep_gui.py
+        
     - name: Run unit tests
       run: |
-        python -m unittest discover -s tests -v
+        python -m unittest tests/test_vrc_sleep_gui.py

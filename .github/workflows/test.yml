@@ -27,6 +27,8 @@ jobs:
         
     - name: Install dependencies
       run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb
         python -m pip install --upgrade pip
         pip install flake8 mypy
         
@@ -40,4 +42,4 @@ jobs:
         
     - name: Run unit tests
       run: |
-        python -m unittest tests/test_vrc_sleep_gui.py
+        xvfb-run python -m unittest tests/test_vrc_sleep_gui.py

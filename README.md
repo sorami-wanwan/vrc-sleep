@@ -2,89 +2,71 @@
 
 [English](README.md) | [日本語](README.ja.md)
 
-A simple CLI tool to post a sleep announcement with a VRChat instance URL to Discord via Webhook, and automatically update the message to "Closed" upon waking up.
+A tool that notifies your instance URL to Discord when you sleep in VRChat, and updates the message to "Closed" when you wake up.
+It provides both a CLI and a modern GUI (Desktop Application).
 
-Runs using only the Python standard library with zero external dependencies.
+It runs solely on Python's standard libraries, requiring no external package installation.
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.10 or higher
 
 ## Installation
 
-Clone the repository and run the script directly, or install via pip:
+You can run it directly by cloning the repository, or install it via pip.
 
 ```bash
 git clone https://github.com/sorami-wanwan/vrc_position_nofy.git
 cd vrc_position_nofy
 
-# Optional: Install as a global CLI command
+# To install via pip (makes the 'vrc-sleep' command available globally)
 pip install .
 ```
 
-## Setup
+## Usage
 
-Configure your Discord Webhook URL and display username:
+Initial setup is required for the Discord Webhook URL. If using the GUI version (`vrc_sleep_gui.py`), you can configure this by clicking the **Settings** button in the top right corner after launching.
+
+For the CLI, run the `config` command as shown below, or use environment variables (`DISCORD_WEBHOOK_URL`, `VRC_SLEEP_USERNAME`).
 
 ```bash
 python3 vrc_sleep.py config --webhook "https://discord.com/api/webhooks/..." --username "SORAMI"
 ```
 
-You can also configure via environment variables:
-- `DISCORD_WEBHOOK_URL`
-- `VRC_SLEEP_USERNAME`
+### 1. Going to Sleep
 
-View current configuration:
+**GUI:**
+Launch `vrc_sleep_gui.py`, enter your "Instance URL", and click the **Start Sleep** button. You can optionally specify a World Name and Image URL.
+
+**CLI:**
+Run the `start` command with your instance URL. You can use (`-w`) for the world name and (`-i`) for an image URL to make the notification richer.
 ```bash
-python3 vrc_sleep.py config
+python3 vrc_sleep.py start "https://vrchat.com/home/launch?worldId=..." -w "Sleepy Bedroom" -i "https://example.com/sleep_thumbnail.png"
 ```
+*Short URLs (`https://vrch.at/...`) are also supported.
 
-## Usage
+### 2. Waking Up
 
-### 1. Going to sleep
-Run `start` with your VRChat instance URL. You can also specify a world name (`-w / --world`) and an image URL (`-i / --image`) to enrich the Discord Embed notification:
+**GUI:**
+Click the **Close Session** button when you wake up to update the notification and end the session.
 
-```bash
-# Basic usage
-python3 vrc_sleep.py start "https://vrchat.com/home/launch?worldId=..."
-
-# With World name and Thumbnail image
-python3 vrc_sleep.py start "https://vrchat.com/home/launch?worldId=..." \
-  --world "Cozy Bedroom" \
-  --image "https://example.com/sleep_thumbnail.png"
-```
-
-Shortened URLs (`https://vrch.at/...`) are also supported.
-
-### 2. Waking up
-Run `close` to update the previous Discord message to "Closed":
-
+**CLI:**
+Run `close` to automatically edit the previously posted Discord message to "Closed".
 ```bash
 python3 vrc_sleep.py close
 
-# Or manually specify the Message ID if local state was lost
+# If local state is lost, you can close it manually by specifying the message ID
 python3 vrc_sleep.py close --message-id "123456789012345678"
 ```
 
-### 3. Check status
-Check active session status and configuration:
+### 3. Checking Status & Misc
 
-```bash
-python3 vrc_sleep.py status
-```
-
-## Commands
-
-- `start <URL>`: Post sleep announcement (`-w/--world` world name, `-i/--image` image URL, `-f` force overwrite active session)
-- `close`: Update posted message to closed status and end session (`--message-id` for manual recovery)
-- `status`: Show current session and configuration
-- `config`: View or update settings (`--webhook`, `--username`, `--show-secret`)
-
-Use `--config /path/to/config.json` if you want to specify a custom configuration file location.
+- You can check if there's an active session using `python3 vrc_sleep.py status` (In the GUI, this is constantly displayed on the status bar).
+- If you want to use a config file in a different location, specify the `--config /path/to/config.json` option.
 
 ## Development & Testing
 
-Run unit tests using Python's built-in `unittest` module:
+Unit tests can be run using Python's standard `unittest` (no external packages required).
 
 ```bash
 python3 -m unittest discover -s tests -v

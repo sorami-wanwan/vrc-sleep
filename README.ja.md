@@ -20,8 +20,8 @@ Pythonの標準ライブラリだけで動くので、外部パッケージの�
 リポジトリをクローンしてそのまま実行するか、pipでインストールしてください。
 
 ```bash
-git clone https://github.com/sorami-wanwan/vrc_position_nofy.git
-cd vrc_position_nofy
+git clone https://github.com/sorami-wanwan/vrc-sleep.git
+cd vrc-sleep
 
 # pipで入れる場合（vrc-sleep コマンドがどこからでも使えるようになります）
 pip install .

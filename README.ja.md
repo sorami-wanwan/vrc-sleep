@@ -40,9 +40,16 @@ python3 vrc_sleep.py config --webhook "https://discord.com/api/webhooks/..." --u
 
 ### 1. 寝るとき
 インスタンスURLを指定して `start` を実行します。
+ワールド名（`-w / --world`）や画像URL（`-i / --image`）を指定して、DiscordのEmbed通知をリッチにすることもできます。
 
 ```bash
+# 基本的な起動
 python3 vrc_sleep.py start "https://vrchat.com/home/launch?worldId=..."
+
+# ワールド名とサムネイル画像を指定
+python3 vrc_sleep.py start "https://vrchat.com/home/launch?worldId=..." \
+  --world "おやすみベッドルーム" \
+  --image "https://example.com/sleep_thumbnail.png"
 ```
 
 短縮URL（`https://vrch.at/...`）にも対応しています。
@@ -52,6 +59,9 @@ python3 vrc_sleep.py start "https://vrchat.com/home/launch?worldId=..."
 
 ```bash
 python3 vrc_sleep.py close
+
+# 万が一ローカルの状態が消えてしまった場合はメッセージIDを手動指定してクローズ可能
+python3 vrc_sleep.py close --message-id "123456789012345678"
 ```
 
 ### 3. 状態確認
@@ -63,8 +73,8 @@ python3 vrc_sleep.py status
 
 ## コマンド一覧
 
-- `start <URL>`: 睡眠通知を投稿（`-f` でセッション上書き）
-- `close`: 投稿済みメッセージを閉鎖に更新してセッション終了
+- `start <URL>`: 睡眠通知を投稿（`-w/--world` ワールド名, `-i/--image` 画像URL, `-f` でセッション強制上書き）
+- `close`: 投稿済みメッセージを閉鎖に更新してセッション終了（`--message-id` で手動指定可）
 - `status`: 現在のセッション状態と設定を表示
 - `config`: 設定の確認・変更（`--webhook`, `--username`, `--show-secret`）
 

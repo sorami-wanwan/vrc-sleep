@@ -42,10 +42,16 @@ python3 vrc_sleep.py config
 ## Usage
 
 ### 1. Going to sleep
-Run `start` with your VRChat instance URL:
+Run `start` with your VRChat instance URL. You can also specify a world name (`-w / --world`) and an image URL (`-i / --image`) to enrich the Discord Embed notification:
 
 ```bash
+# Basic usage
 python3 vrc_sleep.py start "https://vrchat.com/home/launch?worldId=..."
+
+# With World name and Thumbnail image
+python3 vrc_sleep.py start "https://vrchat.com/home/launch?worldId=..." \
+  --world "Cozy Bedroom" \
+  --image "https://example.com/sleep_thumbnail.png"
 ```
 
 Shortened URLs (`https://vrch.at/...`) are also supported.
@@ -55,6 +61,9 @@ Run `close` to update the previous Discord message to "Closed":
 
 ```bash
 python3 vrc_sleep.py close
+
+# Or manually specify the Message ID if local state was lost
+python3 vrc_sleep.py close --message-id "123456789012345678"
 ```
 
 ### 3. Check status
@@ -66,8 +75,8 @@ python3 vrc_sleep.py status
 
 ## Commands
 
-- `start <URL>`: Post sleep announcement (`-f` to force overwrite active session)
-- `close`: Update posted message to closed status and end session
+- `start <URL>`: Post sleep announcement (`-w/--world` world name, `-i/--image` image URL, `-f` force overwrite active session)
+- `close`: Update posted message to closed status and end session (`--message-id` for manual recovery)
 - `status`: Show current session and configuration
 - `config`: View or update settings (`--webhook`, `--username`, `--show-secret`)
 
